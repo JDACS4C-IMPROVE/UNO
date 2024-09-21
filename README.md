@@ -10,8 +10,6 @@ A more detailed tutorial can be found [here](https://jdacs4c-improve.github.io/d
 ## Dependencies
 Installation instuctions are detailed below in [Step-by-step instructions](#step-by-step-instructions).
 
-Conda `yml` file [environment_082223.yml](./environment_082223.yml)
-
 ML framework:
 + [TensorFlow](https://www.tensorflow.org/) -- deep learning framework for building the prediction model
 
