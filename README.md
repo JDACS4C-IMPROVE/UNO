@@ -88,8 +88,9 @@ source setup_improve.sh
 This will:
 1. Download cross-study analysis (CSA) benchmark data into `./csa_data/`.
 2. Clone IMPROVE repo (checkout `develop`) outside the UNO model repo.
-3. Sets `PYTHONPATH` (adds IMPROVE repo).
-4. Sets `IMPROVE_DATA_DIR`.
+3. Set `PYTHONPATH` (adds IMPROVE repo).
+4. Set `IMPROVE_DATA_DIR`.
+5. Note that you must run this to setup the path variables every time you log in.  Installation is skipped if the directories already exist.
 
 
 ### 4. Preprocess CSA benchmark data (_raw data_) to construct model input data (_ML data_)

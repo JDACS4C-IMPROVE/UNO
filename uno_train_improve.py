@@ -43,6 +43,9 @@ print("TensorFlow Version:")
 print(tf.__version__)
 print(tf.config.list_physical_devices('GPU'))
 
+# For TensorFlow 2.16, this would be the integer 16:
+tf_minor_version = int(tf.__version__.split(".")[1])
+
 # Get the current file path
 filepath = Path(__file__).resolve().parent
 
@@ -202,9 +205,14 @@ def run(params: Dict):
     steps_per_epoch = int(np.ceil(len(tr_rsp) / batch_size))
     validation_steps = int(np.ceil(len(vl_rsp) / generator_batch_size))
 
+    if tf_minor_version >= 16:
+        learning_rate = model.optimizer.learning_rate
+    else:
+        learning_rate = model.optimizer.lr
+
     # Instantiate callbacks
     lr_scheduler = LearningRateScheduler(
-        lambda epoch: warmup_scheduler(epoch, model.optimizer.lr, warmup_epochs, initial_lr, max_lr, warmup_type)
+        lambda epoch: warmup_scheduler(epoch, learning_rate, warmup_epochs, initial_lr, max_lr, warmup_type)
     )
 
     reduce_lr = ReduceLROnPlateau(
