@@ -56,8 +56,8 @@ csa_data/raw_data/
 + `uno_preprocess_improve.py` - takes benchmark data files and transforms them into files for training and inference
 + `uno_train_improve.py` - trains the UNO model
 + `uno_infer_improve.py` - runs inference with the trained UNO model
-+ `uno_default_model.txt` - default parameter file (parameter values specified in this file override the defaults)
-+ `params.py` - definitions of parameters that are specific to the model
++ `uno_params.ini` - default parameter file (parameter values specified in this file override the defaults)
++ `model_params_def.py` - definitions of parameters that are specific to the model
 
 # Step-by-step instructions
 
@@ -72,7 +72,7 @@ git checkout develop
 ### 2. Set computational environment
 Create conda environment using the provided environment file:
 ```bash
-conda env create -f conda_env.yml
+conda env create -f uno_environment.yml
 conda activate uno_env
 ```
 
