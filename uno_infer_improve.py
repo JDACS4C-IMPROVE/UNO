@@ -1,48 +1,39 @@
 import time
-import os
 import sys
 from pathlib import Path
 from typing import Dict
-
-# Import required modules from improvelib
-from improvelib.applications.drug_response_prediction.config import DRPInferConfig
-from improvelib.utils import str2bool
-import improvelib.utils as frm  # Utility functions
-
-# Additional third-party library imports
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 
-# Import custom modules from local scripts
-from uno_preprocess_improve import preprocess_params
-from uno_train_improve import metrics_list, train_params
+# [Req] IMPROVE imports
+from improvelib.applications.drug_response_prediction.config import DRPInferConfig
+import improvelib.utils as frm  # Utility functions
+
+# Model-specifc imports
+from model_params_def import infer_params # [Req]
 from uno_utils_improve import (
-    data_merge_generator, batch_predict, print_duration, clean_arrays,
-    check_array, calculate_sstot
+    data_merge_generator, batch_predict
 )
 
-# Set filepath to the directory where the script is located
+# [Req]
 filepath = Path(__file__).resolve().parent  
 
-# ---------------------
-# Parameter Lists
-# ---------------------
-# Define two parameter lists required by the inference process:
-# 1. App-specific parameters for monotherapy drug response prediction.
-# 2. Model-specific parameters (optional; LightGBM in this case).
+# ------------------------------------------------------
+# [Req] Check GPU availability
+# ------------------------------------------------------
+gpus = tf.config.list_logical_devices('GPU')
 
-# Currently no app-specific parameters.
-app_infer_params = []
-
-# Optional model-specific parameters.
-model_infer_params = []
-
-# Combine both parameter lists to pass to frm.initialize_parameters() in the main().
-infer_params = app_infer_params + model_infer_params
+if gpus:
+    print(f"TensorFlow will use the GPU by default: {[gpu.name for gpu in gpus]}")
+else:
+    print("No GPU available. TensorFlow will use the CPU.")
 
 
+# ------------------------------------------------------
+# [Req] Run inference with trained model
+# ------------------------------------------------------
 def run(params: Dict):
     """
     Run model inference and compute prediction scores.
@@ -65,6 +56,7 @@ def run(params: Dict):
     ts_ge = pd.read_parquet(Path(params["input_data_dir"]) / test_ge_fname)
     ts_md = pd.read_parquet(Path(params["input_data_dir"]) / test_md_fname)
     ts_rsp = pd.read_parquet(Path(params["input_data_dir"]) / test_rsp_fname)
+    ts_rsp = ts_rsp[[params["canc_col_name"], params["drug_col_name"], params["y_col_name"]]]
 
     # ------------------------------------------------------
     # Load best model and compute predictions
@@ -76,15 +68,15 @@ def run(params: Dict):
         model_dir=params["input_model_dir"]
     )
     # Load the pre-trained model
-    print("loading model: '%s'" % modelpath)
+    print("Loading model: '%s'" % modelpath)
     try:
         model = load_model(modelpath)
     except IOError as e:
-        print("model load failed: " + str(e))
+        print("Loading model failed: " + str(e))
         exit(1)
 
     # Create data generator for batch predictions
-    generator_batch_size = params["generator_batch_size"]
+    generator_batch_size = params["infer_batch"]
     test_steps = int(np.ceil(len(ts_rsp) / generator_batch_size))
     test_gen = data_merge_generator(
         ts_rsp, ts_ge, ts_md, generator_batch_size, 
@@ -107,9 +99,9 @@ def run(params: Dict):
     )
 
     # ------------------------------------------------------
-    # Compute and save performance scores (optional)
+    # [Req] Compute performance scores
     # ------------------------------------------------------
-    if params.get("calc_infer_scores", False):
+    if params["calc_infer_scores"]:
         test_scores = frm.compute_performance_scores(
             y_true=test_true, 
             y_pred=test_pred, 
@@ -121,31 +113,17 @@ def run(params: Dict):
     return True
 
 
+# [Req]
 def main(args):
-    """
-    Main function to initialize parameters and run inference.
-
-    Args:
-        args (list): Command-line arguments.
-    """
-    # Combine parameter definitions from preprocessing, training, and inference stages
-    additional_definitions = preprocess_params + train_params + infer_params
-
-    # Initialize inference configuration
     cfg = DRPInferConfig()
-    params = cfg.initialize_parameters(
-        pathToModelDir=filepath,
-        default_config="uno_default_model.txt",
-        additional_definitions=additional_definitions,
-        required=None
-    )
-
-    # Run model inference
-    test_scores = run(params)
-
-    # Record inference duration
-    infer_end_time = time.time()
-    print_duration("Infering", infer_start_time, infer_end_time)
+    params = cfg.initialize_parameters(pathToModelDir=filepath,
+                                       default_config="uno_params.ini",
+                                       additional_definitions=infer_params)
+    timer_infer = frm.Timer()    
+    status = run(params)
+    timer_infer.save_timer(dir_to_save=params["output_dir"], 
+                           filename='runtime_infer.json', 
+                           extra_dict={"stage": "infer"})
     print("\nFinished model inference.")
 
 

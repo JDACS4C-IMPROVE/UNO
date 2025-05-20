@@ -1,123 +1,62 @@
-""" Preprocessing of raw data to generate datasets for UNO Model. """
 import time
 import sys
-import os
 from pathlib import Path
-from typing import Dict, List, Union
-from uno_utils_improve import print_duration, get_common_samples, get_column_ranges, subset_data
-
-# Script Dependencies: pandas, numpy, joblib, scikit-learn
-
-# [Req] Import params
-from params import app_preproc_params, model_preproc_params, app_train_params, model_train_params
-
+from typing import Dict
 import numpy as np
 import pandas as pd
-import joblib
 import textwrap
 
-from sklearn.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    RobustScaler,
-    MaxAbsScaler,
-    Normalizer,
-    PowerTransformer,
-)
-
-filepath = Path(__file__).resolve().parent  # [Req]
-
-# IMPROVE imports
+# [Req] IMPROVE imports
 import improvelib.utils as frm
 import improvelib.applications.drug_response_prediction.drp_utils as drp
 from improvelib.applications.drug_response_prediction.config import DRPPreprocessConfig
-import improvelib.applications.drug_response_prediction.drug_utils as drugs_utils
-import improvelib.applications.drug_response_prediction.omics_utils as omics_utils
 
-# ---------------------
-# [Req] Parameter lists
-# ---------------------
-preprocess_params = app_preproc_params + model_preproc_params
-train_params = app_train_params + model_train_params
+# Model-specifc imports
+from model_params_def import preprocess_params # [Req]
+from uno_utils_improve import print_duration, subset_data
 
-def scale_df(
-    df: pd.DataFrame, scaler_name: str = "std", scaler=None, verbose: bool = False
-):
-    """Returns a dataframe with scaled data."""
-    if scaler_name is None or scaler_name == "none":
-        if verbose:
-            print("Scaler is None (no df scaling).")
-        return df, None
+filepath = Path(__file__).resolve().parent  # [Req]
 
-    # Scale data
-    df_num = df.select_dtypes(include="number")
-
-    if scaler is None:  # Create scikit scaler object
-        if scaler_name == "std":
-            scaler = StandardScaler()
-        elif scaler_name == "minmax":
-            scaler = MinMaxScaler()
-        elif scaler_name == "maxabs":
-            scaler = MaxAbsScaler()
-        elif scaler_name == "robust":
-            scaler = RobustScaler()
-        elif scaler_name in ["l1", "l2", "max"]:
-            scaler = Normalizer(norm=scaler_name)
-        elif scaler_name == "power_yj":
-            scaler = PowerTransformer(method='yeo-johnson')
-        else:
-            print(
-                f"The specified scaler ({scaler_name}) is not implemented (no df scaling)."
-            )
-            return df, None
-
-        # Scale data according to new scaler
-        df_norm = scaler.fit_transform(df_num)
-    else:  # Apply passed scikit scaler
-        df_norm = scaler.transform(df_num)
-
-    # Copy back scaled data to data frame
-    df[df_num.columns] = df_norm
-
-    # Remove rows with NaN or inf values and print proportion of rows removed
-    rows_before = df.shape[0]
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(inplace=True)
-    rows_after = df.shape[0]
-    proportion_removed = (rows_before - rows_after) / rows_before
-    print(f"Proportion of rows removed for corrupted data: {proportion_removed:.3%}")
-
-    return df, scaler
 
 def run(params: Dict):
-    """Execute data pre-processing for UNO model."""
+    """ Run data preprocessing.
+
+    Args:
+        params (dict): dict of IMPROVE parameters and parsed values.
+
+    Returns:
+        str: directory name that was used to save the preprocessed (generated)
+            ML data files.
+    """
     # Record start time
     preprocess_start_time = time.time()
+    
+    # ------------------------------------------------------
+    # [Req] Validity check of feature representations
+    # ------------------------------------------------------
+    # not needed for this data/model
 
-    # [Req] Build paths and create ML data dir
-    params = frm.build_paths(params)
-    frm.create_outdir(outdir=params["output_dir"])
+    # ------------------------------------------------------
+    # [Req] Determine preprocessing on training data
+    # ------------------------------------------------------
 
     # Reading hyperparameters
     preprocess_debug = params["preprocess_debug"]
     preprocess_subset_data = params["preprocess_subset_data"]
 
     temp_start_time = time.time()
+    
     # [Req] Load omics data
     print("\nLoading omics data.")
-    omics_obj = omics_utils.OmicsLoader(params)
-    ge = omics_obj.dfs['cancer_gene_expression.tsv']
-    ge["improve_sample_id"] = ge['improve_sample_id'].astype(str)
-    first_column = ge.iloc[:, :1]
-    rest_columns = ge.iloc[:, 1:].add_prefix('ge.')
-    ge = pd.concat([first_column, rest_columns], axis=1)
+    ge = drp.get_x_data(file = params['cell_transcriptomic_file'], 
+                                        benchmark_dir = params['input_dir'], 
+                                        column_name = params['canc_col_name'])
 
     # [Req] Load drug data
     print("\nLoading drugs data.")
-    drugs_obj = drugs_utils.DrugsLoader(params)
-    md = drugs_obj.dfs['drug_mordred.tsv']
-    md = md.reset_index()
-    md["improve_chem_id"] = md['improve_chem_id'].astype(str)
+    md = drp.get_x_data(file = params['drug_mordred_file'], 
+                    benchmark_dir = params['input_dir'], 
+                    column_name = params['drug_col_name'])
 
     temp_end_time = time.time()
     print("")
@@ -134,47 +73,40 @@ def run(params: Dict):
         print("")
 
     temp_start_time = time.time()
-    # Data prep to create scaler on
-    rsp_tr = drp.DrugResponseLoader(
-        params, split_file=params["train_split_file"], verbose=False
-    ).dfs["response.tsv"]
-    rsp_vl = drp.DrugResponseLoader(
-        params, split_file=params["val_split_file"], verbose=False
-    ).dfs["response.tsv"]
-    rsp = pd.concat([rsp_tr, rsp_vl], axis=0)
-    rsp = rsp[[params["canc_col_name"], params["drug_col_name"], params["y_col_name"]]]
-
-    ge_sub, md_sub, rsp_sub = get_common_samples(
-        ge, md, rsp, params["canc_col_name"], params["drug_col_name"]
-    )
+    # Prepare data to fit feature scaler
+    print("Load train response data.")
+    response_train = drp.get_response_data(split_file=params["train_split_file"], 
+                                   benchmark_dir=params['input_dir'], 
+                                   response_file=params['y_data_file'])
+    response_shape_before_merge = response_train.shape
+    print("Find intersection of training data.")
+    response_train = drp.get_response_with_features(response_train, ge, params['canc_col_name'])
+    response_train = drp.get_response_with_features(response_train, md, params['drug_col_name'])
+    ge_train = drp.get_features_in_response(ge, response_train, params['canc_col_name'])
+    md_train = drp.get_features_in_response(md, response_train, params['drug_col_name'])
 
     if preprocess_debug:
         print(textwrap.dedent(f"""
             Gene Expression Shape Before Subsetting With Response: {ge.shape}
-            Gene Expression Shape After Subsetting With Response: {ge_sub.shape}
+            Gene Expression Shape After Subsetting With Response: {ge_train.shape}
             Mordred Shape Before Subsetting With Response: {md.shape}
-            Mordred Shape After Subsetting With Response: {md_sub.shape}
-            Response Shape Before Merging With Data: {rsp.shape}
-            Response Shape After Merging With Data: {rsp_sub.shape}
+            Mordred Shape After Subsetting With Response: {md_train.shape}
+            Response Shape Before Merging With Data: {response_shape_before_merge}
+            Response Shape After Merging With Data: {response_train.shape}
         """))
 
-    # Create Feature Scaler
-    print("\nCreating Feature Scalers\n")
-    _, ge_scaler = scale_df(ge_sub, scaler_name=params["ge_scaling"])
-    ge_scaler_fpath = Path(params["output_dir"]) / params["ge_scaler_fname"]
-    joblib.dump(ge_scaler, ge_scaler_fpath)
-    print("Scaler object for gene expression: ", ge_scaler_fpath)
+    # Create feature scaler
+    print("Determine transformations.")
+    drp.determine_transform(ge_train, 'ge_transform', params['cell_transcriptomic_transform'], params['output_dir'])
+    drp.determine_transform(md_train, 'md_transform', params['drug_mordred_transform'], params['output_dir'])
 
-    _, md_scaler = scale_df(md_sub, scaler_name=params["md_scaling"])
-    md_scaler_fpath = Path(params["output_dir"]) / params["md_scaler_fname"]
-    joblib.dump(md_scaler, md_scaler_fpath)
-    print("Scaler object for Mordred:         ", md_scaler_fpath)
-
-    del rsp, rsp_tr, rsp_vl, ge_sub, md_sub
+    del response_train, ge_train, md_train
     temp_end_time = time.time()
     print_duration("Creating Scalers", temp_start_time, temp_end_time)
 
+    # ------------------------------------------------------
     # [Req] Construct ML data for every stage (train, val, test)
+    # ------------------------------------------------------
     stages = {
         "train": params["train_split_file"],
         "val": params["val_split_file"],
@@ -183,59 +115,74 @@ def run(params: Dict):
 
     for stage, split_file in stages.items():
         split_start_time = time.time()
-        print(f"Stage: {stage.upper()}")
-        rsp = drp.DrugResponseLoader(params, split_file=split_file, verbose=False).dfs[
-            "response.tsv"
-        ]
-        rsp = rsp[[params["canc_col_name"], params["drug_col_name"], params["y_col_name"]]]
-
-        ge_sub, md_sub, rsp_sub = get_common_samples(
-            ge, md, rsp, params["canc_col_name"], params["drug_col_name"]
-        )
-
+        print(f"Prepare data for stage {stage}.")
+        print(f"Find intersection of {stage} data.")
+        response_stage = drp.get_response_data(split_file=split_file, 
+                                benchmark_dir=params['input_dir'], 
+                                response_file=params['y_data_file'])
+        response_shape_before_merge = response_stage.shape
+        response_stage = drp.get_response_with_features(response_stage, ge, params['canc_col_name'])
+        response_stage = drp.get_response_with_features(response_stage, md, params['drug_col_name'])
+        ge_stage = drp.get_features_in_response(ge, response_stage, params['canc_col_name'])
+        md_stage = drp.get_features_in_response(md, response_stage, params['drug_col_name'])
+        
         if preprocess_debug:
             print(textwrap.dedent(f"""
                 Gene Expression Shape Before Subsetting With Response: {ge.shape}
-                Gene Expression Shape After Subsetting With Response: {ge_sub.shape}
+                Gene Expression Shape After Subsetting With Response: {ge_stage.shape}
                 Mordred Shape Before Subsetting With Response: {md.shape}
-                Mordred Shape After Subsetting With Response: {md_sub.shape}
-                Response Shape Before Merging With Data: {rsp.shape}
-                Response Shape After Merging With Data: {rsp_sub.shape}
+                Mordred Shape After Subsetting With Response: {md_stage.shape}
+                Response Shape Before Merging With Data: {response_shape_before_merge}
+                Response Shape After Merging With Data: {response_stage.shape}
             """))
 
         temp_start_time = time.time()
-        print("\nScaling data")
-        ge_sc, _ = scale_df(ge_sub, scaler=ge_scaler)
-        md_sc, _ = scale_df(md_sub, scaler=md_scaler)
+        print(f"Transform {stage} data.")
+        ge_stage = drp.transform_data(ge_stage, 'ge_transform', params['output_dir'])
+        md_stage = drp.transform_data(md_stage, 'md_transform', params['output_dir'])
         temp_end_time = time.time()
         print_duration(f"Applying Scaler to {stage.capitalize()}", temp_start_time, temp_end_time)
 
         if preprocess_debug:
             print("Gene Expression Scaled:")
-            print(ge_sc.head())
-            print(ge_sc.shape)
+            print(ge_stage.head())
+            print(ge_stage.shape)
             print("")
             print("Mordred Descriptors Scaled:")
-            print(md_sc.head())
-            print(md_sc.shape)
+            print(md_stage.head())
+            print(md_stage.shape)
             print("")
 
         if preprocess_subset_data:
             total_num_samples = 5000
             stage_proportions = {"train": 0.8, "val": 0.1, "test": 0.1}
-            rsp_sub = subset_data(rsp_sub, stage, total_num_samples, stage_proportions)
+            response_stage = subset_data(response_stage, stage, total_num_samples, stage_proportions)
 
         temp_start_time = time.time()
         print(f"Saving {stage.capitalize()} Data (unmerged) to Parquet")
+        
+        # [Req] Build data name
         data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage=stage)
         ge_fname = f"ge_{data_fname}"
         md_fname = f"md_{data_fname}"
         rsp_fname = f"rsp_{data_fname}"
-        ge_sc.to_parquet(Path(params["output_dir"]) / ge_fname)
-        md_sc.to_parquet(Path(params["output_dir"]) / md_fname)
-        rsp_sub.to_parquet(Path(params["output_dir"]) / rsp_fname)
-        ydf = rsp_sub[['improve_sample_id', 'improve_chem_id', params["y_col_name"]]]
-        frm.save_stage_ydf(ydf, stage, params["output_dir"])
+        
+        ge_stage = ge_stage.reset_index()
+        ge_stage["improve_sample_id"] = ge_stage['improve_sample_id'].astype(str)
+        first_column = ge_stage.iloc[:, :1]
+        rest_columns = ge_stage.iloc[:, 1:].add_prefix('ge.')
+        ge_stage = pd.concat([first_column, rest_columns], axis=1)
+        ge_stage.to_parquet(Path(params["output_dir"]) / ge_fname)
+        
+        md_stage = md_stage.reset_index()
+        md_stage["improve_chem_id"] = md_stage['improve_chem_id'].astype(str)
+        md_stage.to_parquet(Path(params["output_dir"]) / md_fname)
+        
+        response_stage.to_parquet(Path(params["output_dir"]) / rsp_fname)
+        
+        # [Req] Save y dataframe for the current stage
+        frm.save_stage_ydf(response_stage, stage, params["output_dir"])
+        
         temp_end_time = time.time()
         print_duration(f"Saving {stage.capitalize()} Dataframes", temp_start_time, temp_end_time)
 
@@ -251,19 +198,19 @@ def run(params: Dict):
 
 # [Req]
 def main(args):
-    # [Req]
-    additional_definitions = preprocess_params
     cfg = DRPPreprocessConfig()
     params = cfg.initialize_parameters(
         pathToModelDir=filepath,
-        default_config="uno_default_model.txt",
-        additional_definitions=additional_definitions,
+        default_config="uno_params.ini",
+        additional_definitions=preprocess_params,
         required=None,
     )
+    timer_preprocess = frm.Timer()
     ml_data_outdir = run(params)
-    print(
-        "\nFinished UNO pre-processing (transformed raw DRP data to model input ML data)."
-    )
+    timer_preprocess.save_timer(dir_to_save=params["output_dir"], 
+                                filename='runtime_preprocess.json', 
+                                extra_dict={"stage": "preprocess"})
+    print("\nFinished data preprocessing.")
 
 # [Req]
 if __name__ == "__main__":

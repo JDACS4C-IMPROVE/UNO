@@ -106,9 +106,11 @@ Generates:
 exp_result
 ├── ge_test_data.parquet
 ├── ge_train_data.parquet
+├── ge_transform.json
 ├── ge_val_data.parquet
 ├── md_test_data.parquet
 ├── md_train_data.parquet
+├── md_transform.json
 ├── md_val_data.parquet
 ├── param_log_file.txt
 ├── rsp_test_data.parquet
@@ -116,9 +118,7 @@ exp_result
 ├── rsp_val_data.parquet
 ├── test_y_data.csv
 ├── train_y_data.csv
-├── val_y_data.csv
-├── x_data_gene_expression_scaler.gz
-└── x_data_mordred_scaler.gz
+└── val_y_data.csv
 ```
 
 ### 5. Train UNO model

@@ -3,18 +3,16 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
-  - pip
-  - numpy  # Let conda-forge choose
-  - pandas  # Let conda-forge choose
-  - scipy  # Let conda-forge choose
-  - scikit-learn  # Let conda-forge choose
-  - tensorflow  # Let conda-forge choose
-  - h5py  # Let conda-forge choose
-  - matplotlib  # Let conda-forge choose
-  - pyyaml  # Let conda-forge choose
-  - tqdm  # Let conda-forge choose
-  - fastparquet  # Let conda-forge choose
-  - pyarrow  # Let conda-forge choose
-  - pip:
-      - "git+https://github.com/JDACS4C-IMPROVE/IMPROVE.git@develop#egg=improvelib"
+  - python=3.10.17
+  - pip=25.1.1
+  - numpy=1.26.4
+  - pandas=2.2.3
+  - scipy=1.15.2
+  - scikit-learn=1.6.1
+  - tensorflow=2.14.0
+  - h5py=3.13.0
+  - matplotlib=3.10.3
+  - pyyaml=6.0.2
+  - tqdm=4.67.1
+  - fastparquet=2024.11.0
+  - pyarrow=12.0.1
