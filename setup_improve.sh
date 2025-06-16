@@ -27,7 +27,7 @@ export IMPROVE_DATA_DIR="./$data_dir/"
 # Clone IMPROVE lib (if needed)
 pushd ../
 improve_lib_path=$PWD/IMPROVE
-improve_branch="develop"
+improve_branch="v0.1.0"
 if [[ -d $improve_lib_path ]]; then
     echo "IMPROVE repo exists in ${improve_lib_path}"
 else
