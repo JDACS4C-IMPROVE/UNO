@@ -2,7 +2,7 @@
 
 The UNO model consists of two fully connected neural network branches for separately embedding the drug and cell line features, then a third fully connected neural network to regress on the combined embedded features. UNO was one of the benchmark models in the CANDLE project for cancer drug response.
 
-This repository uses the [IMPROVE API](https://jdacs4c-improve.github.io/docs/content/API.html) for building this drug response prediction (DRP) model. It uses the[cross-study analysis (CSA) dataset](https://web.cels.anl.gov/projects/IMPROVE_FTP/candle/public/improve/benchmarks/single_drug_drp/benchmark-data-pilot1/csa_data/).
+This repository uses the [IMPROVE API](https://jdacs4c-improve.github.io/docs/v0.1.0) for building this drug response prediction (DRP) model. It uses the[cross-study analysis (CSA) dataset](https://web.cels.anl.gov/projects/IMPROVE_FTP/candle/public/improve/benchmarks/single_drug_drp/benchmark-data-pilot1/csa_data/).
 
 The `workflows` folder provides examples for `cross study analysis`, `learning curve analysis` and `deephyper hyperparameter optimization`
 
@@ -65,7 +65,7 @@ csa_data/raw_data/
 ```
 git clone https://github.com/JDACS4C-IMPROVE/UNO
 cd UNO
-git checkout develop
+git checkout v0.1.0
 ```
 
 
