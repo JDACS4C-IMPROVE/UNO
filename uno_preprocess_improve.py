@@ -48,13 +48,13 @@ def run(params: Dict):
     
     # [Req] Load omics data
     print("\nLoading omics data.")
-    ge = drp.get_x_data(file = params['cell_transcriptomic_file'], 
+    ge = frm.get_x_data(file = params['cell_transcriptomic_file'], 
                                         benchmark_dir = params['input_dir'], 
                                         column_name = params['canc_col_name'])
 
     # [Req] Load drug data
     print("\nLoading drugs data.")
-    md = drp.get_x_data(file = params['drug_mordred_file'], 
+    md = frm.get_x_data(file = params['drug_mordred_file'], 
                     benchmark_dir = params['input_dir'], 
                     column_name = params['drug_col_name'])
 
@@ -75,15 +75,15 @@ def run(params: Dict):
     temp_start_time = time.time()
     # Prepare data to fit feature scaler
     print("Load train response data.")
-    response_train = drp.get_response_data(split_file=params["train_split_file"], 
+    response_train = frm.get_y_data(split_file=params["train_split_file"], 
                                    benchmark_dir=params['input_dir'], 
-                                   response_file=params['y_data_file'])
+                                   y_data_file=params['y_data_file'])
     response_shape_before_merge = response_train.shape
     print("Find intersection of training data.")
-    response_train = drp.get_response_with_features(response_train, ge, params['canc_col_name'])
-    response_train = drp.get_response_with_features(response_train, md, params['drug_col_name'])
-    ge_train = drp.get_features_in_response(ge, response_train, params['canc_col_name'])
-    md_train = drp.get_features_in_response(md, response_train, params['drug_col_name'])
+    response_train = frm.get_y_data_with_features(response_train, ge, params['canc_col_name'])
+    response_train = frm.get_y_data_with_features(response_train, md, params['drug_col_name'])
+    ge_train = frm.get_features_in_y_data(ge, response_train, params['canc_col_name'])
+    md_train = frm.get_features_in_y_data(md, response_train, params['drug_col_name'])
 
     if preprocess_debug:
         print(textwrap.dedent(f"""
@@ -97,8 +97,8 @@ def run(params: Dict):
 
     # Create feature scaler
     print("Determine transformations.")
-    drp.determine_transform(ge_train, 'ge_transform', params['cell_transcriptomic_transform'], params['output_dir'])
-    drp.determine_transform(md_train, 'md_transform', params['drug_mordred_transform'], params['output_dir'])
+    frm.determine_transform(ge_train, 'ge_transform', params['cell_transcriptomic_transform'], params['output_dir'])
+    frm.determine_transform(md_train, 'md_transform', params['drug_mordred_transform'], params['output_dir'])
 
     del response_train, ge_train, md_train
     temp_end_time = time.time()
@@ -117,14 +117,14 @@ def run(params: Dict):
         split_start_time = time.time()
         print(f"Prepare data for stage {stage}.")
         print(f"Find intersection of {stage} data.")
-        response_stage = drp.get_response_data(split_file=split_file, 
+        response_stage = frm.get_y_data(split_file=split_file, 
                                 benchmark_dir=params['input_dir'], 
-                                response_file=params['y_data_file'])
+                                y_data_file=params['y_data_file'])
         response_shape_before_merge = response_stage.shape
-        response_stage = drp.get_response_with_features(response_stage, ge, params['canc_col_name'])
-        response_stage = drp.get_response_with_features(response_stage, md, params['drug_col_name'])
-        ge_stage = drp.get_features_in_response(ge, response_stage, params['canc_col_name'])
-        md_stage = drp.get_features_in_response(md, response_stage, params['drug_col_name'])
+        response_stage = frm.get_y_data_with_features(response_stage, ge, params['canc_col_name'])
+        response_stage = frm.get_y_data_with_features(response_stage, md, params['drug_col_name'])
+        ge_stage = frm.get_features_in_y_data(ge, response_stage, params['canc_col_name'])
+        md_stage = frm.get_features_in_y_data(md, response_stage, params['drug_col_name'])
         
         if preprocess_debug:
             print(textwrap.dedent(f"""
@@ -138,8 +138,8 @@ def run(params: Dict):
 
         temp_start_time = time.time()
         print(f"Transform {stage} data.")
-        ge_stage = drp.transform_data(ge_stage, 'ge_transform', params['output_dir'])
-        md_stage = drp.transform_data(md_stage, 'md_transform', params['output_dir'])
+        ge_stage = frm.transform_data(ge_stage, 'ge_transform', params['output_dir'])
+        md_stage = frm.transform_data(md_stage, 'md_transform', params['output_dir'])
         temp_end_time = time.time()
         print_duration(f"Applying Scaler to {stage.capitalize()}", temp_start_time, temp_end_time)
 
