@@ -6,6 +6,14 @@ from typing import Dict, List, Union
 from tensorflow.keras.callbacks import (
     Callback,
 )
+from sklearn.preprocessing import (
+    StandardScaler,
+    MinMaxScaler,
+    RobustScaler,
+    MaxAbsScaler,
+    Normalizer,
+    PowerTransformer,
+)
 
 
 # ------------------------------------------------------
@@ -55,6 +63,54 @@ def get_common_samples(
     return canc_df, drug_df, rsp_df
 
 
+def scale_df(
+    df: pd.DataFrame, scaler_name: str = "std", scaler=None, verbose: bool = False
+):
+    """Returns a dataframe with scaled data."""
+    if scaler_name is None or scaler_name == "none":
+        if verbose:
+            print("Scaler is None (no df scaling).")
+        return df, None
+
+    # Scale data
+    df_num = df.select_dtypes(include="number")
+
+    if scaler is None:  # Create scikit scaler object
+        if scaler_name == "std":
+            scaler = StandardScaler()
+        elif scaler_name == "minmax":
+            scaler = MinMaxScaler()
+        elif scaler_name == "maxabs":
+            scaler = MaxAbsScaler()
+        elif scaler_name == "robust":
+            scaler = RobustScaler()
+        elif scaler_name in ["l1", "l2", "max"]:
+            scaler = Normalizer(norm=scaler_name)
+        elif scaler_name == "power_yj":
+            scaler = PowerTransformer(method='yeo-johnson')
+        else:
+            print(
+                f"The specified scaler ({scaler_name}) is not implemented (no df scaling)."
+            )
+            return df, None
+
+        # Scale data according to new scaler
+        df_norm = scaler.fit_transform(df_num)
+    else:  # Apply passed scikit scaler
+        df_norm = scaler.transform(df_num)
+
+    # Copy back scaled data to data frame
+    df[df_num.columns] = df_norm
+
+    # Remove rows with NaN or inf values and print proportion of rows removed
+    rows_before = df.shape[0]
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
+    rows_after = df.shape[0]
+    proportion_removed = (rows_before - rows_after) / rows_before
+    print(f"Proportion of rows removed for corrupted data: {proportion_removed:.3%}")
+
+    return df, scaler
 
 # ------------------------------------------------------
 # Train Utils

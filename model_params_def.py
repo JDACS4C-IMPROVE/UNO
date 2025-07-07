@@ -1,89 +1,9 @@
-# [Req] IMPROVE/CANDLE imports
-# from improve import framework as frm
-# import improvelib.utils as frm
+"""
+Model-specific params
+"""
 from improvelib.utils import str2bool
 
-# --------------------------------
-# [Req] Preprocess Parameter Lists
-# --------------------------------
-# Two parameter lists are required:
-# 1. app_preproc_params
-# 2. model_preproc_params
-# 
-# The values for the parameters in both lists should be specified in a
-# parameter file that is passed as default_model arg in
-# frm.initialize_parameters().
-
-# 1. App-specific params (App: monotherapy drug response prediction)
-app_preproc_params = [
-    {
-        "name": "y_data_files",  # default
-        "type": str,
-        "help": "List of files that contain the y (prediction variable) data. \
-             Example: [['response.tsv']]",
-    },
-    {
-        "name": "x_data_canc_files",  # required
-        "type": str,
-        "help": "List of feature files including gene_system_identifer. Examples: \n\
-             1) [['cancer_gene_expression.tsv', ['Gene_Symbol']]] \n\
-             2) [['cancer_copy_number.tsv', ['Ensembl', 'Entrez']]].",
-    },
-    {
-        "name": "x_data_drug_files",  # required
-        "type": str,
-        "help": "List of feature files. Examples: \n\
-             1) [['drug_SMILES.tsv']] \n\
-             2) [['drug_SMILES.tsv'], ['drug_ecfp4_nbits512.tsv']]",
-    },
-    {
-        "name": "canc_col_name",
-        "default": "improve_sample_id",  # default
-        "type": str,
-        "help": "Column name in the y (response) data file that contains the cancer sample ids.",
-    },
-    {
-        "name": "drug_col_name",  # default
-        "default": "improve_chem_id",
-        "type": str,
-        "help": "Column name in the y (response) data file that contains the drug ids.",
-    },
-]
-
-# 2. Model-specific params (Model: Uno)
-model_preproc_params = [
-    {
-        "name": "use_lincs",
-        "type": str2bool,
-        "default": False,
-        "help": "Flag to indicate if using landmark genes.",
-    },
-    {
-        "name": "ge_scaling",
-        "type": str,
-        "default": "std",
-        "choice": ["std", "minmax", "maxabs", "robust", "l1", "l2", "max", "power_yj"],
-        "help": "Scaler for gene expression data.",
-    },
-    {
-        "name": "ge_scaler_fname",
-        "type": str,
-        "default": "x_data_gene_expression_scaler.gz",
-        "help": "File name to save the gene expression scaler object.",
-    },
-    {
-        "name": "md_scaling",
-        "type": str,
-        "default": "std",
-        "choice": ["std", "minmax", "miabs", "robust", "l1", "l2", "max", "power_yj"],
-        "help": "Scaler for gene expression data.",
-    },
-    {
-        "name": "md_scaler_fname",
-        "type": str,
-        "default": "x_data_mordred_scaler.gz",
-        "help": "File name to save the Mordred scaler object.",
-    },
+preprocess_params = [
     {
         "name": "preprocess_debug",
         "type": bool,
@@ -99,50 +19,7 @@ model_preproc_params = [
 ]
 
 
-
-# ---------------------------
-# [Req] Train Parameter Lists
-# ---------------------------
-# Two parameter lists are required:
-# 1. app_train_params
-# 2. model_train_params
-#
-# The values for the parameters in both lists should be specified in a
-# parameter file that is passed as default_model arg in
-# frm.initialize_parameters().
-
-# 1. App-specific params (App: monotherapy drug response prediction)
-# Currently, there are no app-specific params for this script.
-app_train_params = []
-
-# 2. Model-specific params (Model: UNO)
-# All params in model_train_params are optional.
-# If no params are required by the model, then it should be an empty list.
-model_train_params = [
-    {
-        "name": "epochs",
-        "type": int,
-        "default": 150,
-        "help": "Number of epochs in training.",
-    },
-    {
-        "name": "batch_size",
-        "type": int,
-        "default": 32,
-        "help": "Batch size for training.",
-    },
-    {
-        "name": "generator_batch_size",
-        "type": int,
-        "default": 1024,
-        "help": "Batch size for prediction.",
-    },
-    {
-        "name": "learning_rate",
-        "type": float,
-        "default": 1e-5,
-        "help": "learning rate.",
-    },
+train_params = [
     {
         "name": "warmup_epochs",
         "type": int,
@@ -180,24 +57,6 @@ model_train_params = [
         "help": "Output activation function since target is [0,1]",
     },
     {
-        "name": "loss",
-        "type": str,
-        "default": "mse",
-        "help": "Loss function to be used.",
-    },
-    {
-        "name": "early_stop_metric",
-        "type": str,
-        "default": "mse",
-        "help": "Loss function for early stopping",
-    },
-    {
-        "name": "early_stopping_patience",
-        "type": int,
-        "default": 20,
-        "help": "Patience for early stopping training after no improvement",
-    },
-    {
         "name": "train_debug",
         "type": bool,
         "default": False,
@@ -210,13 +69,17 @@ model_train_params = [
         "help": "Subsetting data for faster test runs",
     },
     {
+        "name": "preprocess_subset_data",
+        "type": bool,
+        "default": False,
+        "help": "Subsetting data for faster test runs",
+    },
+    {
         "name": "hyperparam_space",
         "type": str,
         "default": "global",
         "help": "Defines the hyperparameter space to use. Could be global, by block, or by layer"
     },
-
-
     {
         "name": "dropout",
         "type": float,
@@ -229,8 +92,6 @@ model_train_params = [
         "default": "relu",
         "help": "Global activation function."
     },
-
-
     {
         "name": "canc_arch",
         "type": int,
@@ -285,8 +146,6 @@ model_train_params = [
         "default": 0.1,
         "help": "Block dropout rate for interaction layers."
     },
-
-
     {
         "name": "canc_num_layers",
         "type": int,
@@ -805,3 +664,5 @@ model_train_params = [
     }
 
 ]
+
+infer_params = []

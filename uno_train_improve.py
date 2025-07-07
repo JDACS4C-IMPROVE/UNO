@@ -1,13 +1,11 @@
 import time
-import os
 import sys
 from pathlib import Path
 from typing import Dict
-
-# Import necessary libraries
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from tensorflow.keras.models import load_model
 from keras.models import Model
 from keras.layers import Input, Dense, Concatenate, Dropout, Lambda
 from tensorflow.keras.callbacks import (
@@ -16,13 +14,28 @@ from tensorflow.keras.callbacks import (
     EarlyStopping,
 )
 
-# Custom imports
+# [Req] IMPROVE imports
 from improvelib.applications.drug_response_prediction.config import DRPTrainConfig
-from improvelib.utils import str2bool
 import improvelib.utils as frm
 
-# Import parameters
-from params import app_preproc_params, model_preproc_params, app_train_params, model_train_params
+# Model-specifc imports
+from model_params_def import train_params # [Req]
+from uno_utils_improve import (
+    data_merge_generator, 
+    batch_predict, 
+    get_optimizer,
+    subset_data,
+    calculate_sstot, 
+    R2Callback_efficient, 
+    warmup_scheduler
+)
+
+# Get the current file path
+filepath = Path(__file__).resolve().parent
+
+# ------------------------------------------------------
+# Helper functions
+# ------------------------------------------------------
 
 # Compatibility function for setting and accessing learning rate
 def set_learning_rate(optimizer, lr):
@@ -36,33 +49,6 @@ def get_learning_rate(optimizer):
         return optimizer.learning_rate
     else:  # For TensorFlow versions before 2.2
         return optimizer.lr
-
-# Import custom utility functions
-from uno_utils_improve import (
-    data_merge_generator, 
-    batch_predict, 
-    print_duration, 
-    get_optimizer,
-    subset_data,
-    calculate_sstot, 
-    R2Callback_efficient, 
-    R2Callback_accurate, 
-    warmup_scheduler,
-    clean_arrays, check_array
-)
-
-# Check TensorFlow and GPU
-print("TensorFlow Version:")
-print(tf.__version__)
-print(tf.config.list_physical_devices('GPU'))
-
-# Get the current file path
-filepath = Path(__file__).resolve().parent
-
-# Define parameters
-preprocess_params = app_preproc_params + model_preproc_params
-train_params = app_train_params + model_train_params
-metrics_list = ["mse", "rmse", "pcc", "scc", "r2"]
 
 def read_architecture(params, hyperparam_space, arch_type):
     """Setup architecture for cancer, drug, and interaction layers."""
@@ -92,13 +78,35 @@ def read_architecture(params, hyperparam_space, arch_type):
             layers_activation.append(params[f"{arch_type}_layer_{i+1}_activation"])
     return num_layers, layers_size, layers_dropout, layers_activation
 
+
+# ------------------------------------------------------
+# [Req] Check GPU availability
+# ------------------------------------------------------
+gpus = tf.config.list_logical_devices('GPU')
+
+if gpus:
+    print(f"TensorFlow will use the GPU by default: {[gpu.name for gpu in gpus]}")
+else:
+    print("No GPU available. TensorFlow will use the CPU.")
+
+# ------------------------------------------------------
+# [Req] Train model
+# ------------------------------------------------------
 def run(params: Dict):
-    """Run model training."""
+    """ Run model training.
+
+    Args:
+        params (dict): dict of IMPROVE parameters and parsed values.
+
+    Returns:
+        dict: prediction performance scores computed on validation data.
+    """
     # Record start time
     train_start_time = time.time()
 
-    # Create output directory and build model path
-    frm.create_outdir(outdir=params["output_dir"])
+    # ------------------------------------------------------
+    # [Req] Build model path
+    # ------------------------------------------------------
     modelpath = frm.build_model_path(
         model_file_name=params["model_file_name"],
         model_file_format=params["model_file_format"],
@@ -108,7 +116,7 @@ def run(params: Dict):
     # Read hyperparameters
     epochs = params["epochs"]
     batch_size = params["batch_size"]
-    generator_batch_size = params["generator_batch_size"]
+    generator_batch_size = params["val_batch"]
     learning_rate = params["learning_rate"]
     max_lr = learning_rate * batch_size
     min_lr = max_lr / 10000
@@ -117,7 +125,7 @@ def run(params: Dict):
     initial_lr = max_lr / 100
     reduce_lr_factor = params["reduce_lr_factor"]
     reduce_lr_patience = params["reduce_lr_patience"]
-    early_stopping_patience = params["early_stopping_patience"]
+    early_stopping_patience = params["patience"]
     optimizer = get_optimizer(params["optimizer"], initial_lr)
     train_debug = params["train_debug"]
     train_subset_data = params["train_subset_data"]
@@ -141,22 +149,31 @@ def run(params: Dict):
         print("INTERACTION LAYERS:", interaction_layers_size, interaction_layers_dropout, interaction_layers_activation)
         print("REGRESSION LAYER:", regression_activation)
 
-    # Create file names and load data
+    # ------------------------------------------------------
+    # [Req] Create data names for train and val sets
+    # ------------------------------------------------------
     train_data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage="train")
     train_ge_fname = f"ge_{train_data_fname}"
     train_md_fname = f"md_{train_data_fname}"
     train_rsp_fname = f"rsp_{train_data_fname}"
-    tr_ge = pd.read_parquet(Path(params["input_dir"])/train_ge_fname)
-    tr_md = pd.read_parquet(Path(params["input_dir"])/train_md_fname)
-    tr_rsp = pd.read_parquet(Path(params["input_dir"])/train_rsp_fname)
-
+    
     val_data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage="val")
     val_ge_fname = f"ge_{val_data_fname}"
     val_md_fname = f"md_{val_data_fname}"
     val_rsp_fname = f"rsp_{val_data_fname}"
+    
+    # ------------------------------------------------------
+    # Load model input data (ML data)
+    # ------------------------------------------------------
+    tr_ge = pd.read_parquet(Path(params["input_dir"])/train_ge_fname)
+    tr_md = pd.read_parquet(Path(params["input_dir"])/train_md_fname)
+    tr_rsp = pd.read_parquet(Path(params["input_dir"])/train_rsp_fname)
+    tr_rsp = tr_rsp[[params["canc_col_name"], params["drug_col_name"], params["y_col_name"]]]
+
     vl_ge = pd.read_parquet(Path(params["input_dir"])/val_ge_fname)
     vl_md = pd.read_parquet(Path(params["input_dir"])/val_md_fname)
     vl_rsp = pd.read_parquet(Path(params["input_dir"])/val_rsp_fname)
+    vl_rsp = vl_rsp[[params["canc_col_name"], params["drug_col_name"], params["y_col_name"]]]
 
     if train_subset_data:
         total_num_samples = 5000
@@ -167,16 +184,14 @@ def run(params: Dict):
     if train_debug:
         print("TRAIN DATA:", tr_rsp.head(), tr_rsp.shape)
         print("VAL DATA:", vl_rsp.head(), vl_rsp.shape)
+        
+    # ------------------------------------------------------
+    # Prepare, train, and save model
+    # ------------------------------------------------------
 
-    # Merge one row to get feature sets
-    row = tr_rsp.iloc[0:1]
-    merged_row = pd.merge(row, tr_ge, on=params["canc_col_name"], how="inner")
-    merged_row = pd.merge(merged_row, tr_md, on=params["drug_col_name"], how="inner")
-    if train_debug:
-        print(merged_row.head(), merged_row.shape)
-
-    num_ge_columns = len([col for col in merged_row.columns if col.startswith('ge')])
-    num_md_columns = len([col for col in merged_row.columns if col.startswith('mordred')])
+    # Get number of columns
+    num_ge_columns = len([col for col in tr_ge.columns if col.startswith('ge')])
+    num_md_columns = len([col for col in tr_md.columns if col.startswith('mordred')])
 
     # Define model inputs
     all_input = Input(shape=(num_ge_columns + num_md_columns,), name="all_input")
@@ -269,7 +284,18 @@ def run(params: Dict):
 
     # Save model
     model.save(modelpath)
-
+    
+    # ------------------------------------------------------
+    # Load best model and compute predictions
+    # ------------------------------------------------------
+    # Load best model
+    print("Loading best model: '%s'" % modelpath)
+    try:
+        model = load_model(modelpath)
+    except IOError as e:
+        print("Loading of model failed: " + str(e))
+        exit(1)
+        
     # Make predictions
     val_pred, val_true = batch_predict(
         model, 
@@ -278,6 +304,9 @@ def run(params: Dict):
     )
 
     if (train_subset_data and preprocess_subset_data) or (not train_subset_data and not preprocess_subset_data):    
+        # ------------------------------------------------------
+        # [Req] Save raw predictions in dataframe
+        # ------------------------------------------------------
         frm.store_predictions_df(
             y_true=val_true, 
             y_pred=val_pred, 
@@ -286,7 +315,10 @@ def run(params: Dict):
             output_dir=params["output_dir"],
             input_dir=params["input_dir"]
         )
-
+        
+        # ------------------------------------------------------
+        # [Req] Compute performance scores
+        # ------------------------------------------------------
         val_scores = frm.compute_performance_scores(
             y_true=val_true, 
             y_pred=val_pred, 
@@ -298,20 +330,15 @@ def run(params: Dict):
     return val_scores
 
 def main(args):
-    train_start_time = time.time()
-    """Main function to run the model training."""
-    additional_definitions = preprocess_params + train_params
     cfg = DRPTrainConfig()
-    params = cfg.initialize_parameters(
-        pathToModelDir=filepath,
-        default_config="uno_default_model.txt",
-        additional_definitions=additional_definitions,
-        required=None,
-    )
+    params = cfg.initialize_parameters(pathToModelDir=filepath,
+                                       default_config="uno_params.ini",
+                                       additional_definitions=train_params)
+    timer_train = frm.Timer()    
     val_scores = run(params)
-    train_end_time = time.time()
-    print_duration("One epoch", 0, time_per_epoch)
-    print_duration("Total Training", train_start_time, train_end_time)
+    timer_train.save_timer(dir_to_save=params["output_dir"], 
+                           filename='runtime_train.json', 
+                           extra_dict={"stage": "train"})
     print("\nFinished model training.")
 
 if __name__ == "__main__":
