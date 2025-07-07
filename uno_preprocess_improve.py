@@ -78,6 +78,7 @@ def run(params: Dict):
     response_train = frm.get_y_data(split_file=params["train_split_file"], 
                                    benchmark_dir=params['input_dir'], 
                                    y_data_file=params['y_data_file'])
+    response_train = response_train.dropna(subset=[params['y_col_name']])
     response_shape_before_merge = response_train.shape
     print("Find intersection of training data.")
     response_train = frm.get_y_data_with_features(response_train, ge, params['canc_col_name'])
@@ -120,6 +121,7 @@ def run(params: Dict):
         response_stage = frm.get_y_data(split_file=split_file, 
                                 benchmark_dir=params['input_dir'], 
                                 y_data_file=params['y_data_file'])
+        response_stage = response_stage.dropna(subset=[params['y_col_name']])
         response_shape_before_merge = response_stage.shape
         response_stage = frm.get_y_data_with_features(response_stage, ge, params['canc_col_name'])
         response_stage = frm.get_y_data_with_features(response_stage, md, params['drug_col_name'])
