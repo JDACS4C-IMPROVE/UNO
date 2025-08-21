@@ -441,7 +441,9 @@ def lincs_gene_filtering(df: pd.DataFrame, lincs_genes_file: Union[Path, str], c
 
         # Find which LINCS genes are present in the dataframe
         available_genes = df.columns.tolist()
-        matching_genes = [gene for gene in lincs_genes if gene in available_genes]
+        matching_genes = ["ge."+gene for gene in lincs_genes if "ge."+gene in available_genes]
+        if len(matching_genes) == 0:
+            matching_genes = [gene for gene in lincs_genes if gene in available_genes]
 
         print(f"Found {len(matching_genes)} matching genes out of {len(lincs_genes)} LINCS genes")
         print(f"Original dataframe had {len(available_genes)} genes")
