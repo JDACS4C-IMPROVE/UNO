@@ -4,8 +4,7 @@ import sys
 import os
 from pathlib import Path
 from typing import Dict, List, Union
-from uno_utils_improve import print_duration, get_common_samples, get_column_ranges, subset_data
-
+from uno_utils_improve import print_duration, get_common_samples, get_column_ranges, subset_data, lincs_gene_filtering
 # Script Dependencies: pandas, numpy, joblib, scikit-learn
 
 # [Req] Import params
@@ -111,6 +110,18 @@ def run(params: Dict):
     first_column = ge.iloc[:, :1]
     rest_columns = ge.iloc[:, 1:].add_prefix('ge.')
     ge = pd.concat([first_column, rest_columns], axis=1)
+
+    # Apply LINCS gene filtering if enabled
+    use_lincs = params["use_lincs"]
+    lincs_genes_file = params["lincs_genes_file"]
+    if use_lincs and not lincs_genes_file:
+        raise ValueError("lincs_genes_file must be specified when use_lincs is True") 
+    if use_lincs and lincs_genes_file:
+        print("\nApplying LINCS gene filtering...")
+        ge = lincs_gene_filtering(ge, lincs_genes_file, params['canc_col_name'])
+        print("LINCS gene filtering completed.")
+    else:
+        print("\nLINCS gene filtering disabled.")
 
     # [Req] Load drug data
     print("\nLoading drugs data.")

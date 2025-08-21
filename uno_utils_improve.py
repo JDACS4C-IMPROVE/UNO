@@ -418,7 +418,61 @@ def check_array(array):
 # Not Yet Used Utils
 # ------------------------------------------------------
 
-# TO-DO related to lincs
+def lincs_gene_filtering(df: pd.DataFrame, lincs_genes_file: Union[Path, str], canc_col_name: str):
+    """Filter gene expression dataframe to keep only LINCS genes.
+
+    Args:
+        df: DataFrame containing gene expression data
+        lincs_genes_file: Path to file containing LINCS gene names
+        canc_col_name: Name of the cancer column (first column)
+
+    Returns:
+        DataFrame with only LINCS genes retained
+    """
+    if lincs_genes_file is None:
+        print("Warning: lincs_genes_file is None, returning original dataframe")
+        return df
+
+    try:
+        with open(lincs_genes_file, 'r') as f:
+            lincs_genes = [line.strip() for line in f if line.strip()]
+
+        print(f"Loaded {len(lincs_genes)} LINCS genes from {lincs_genes_file}")
+
+        # Find which LINCS genes are present in the dataframe
+        available_genes = df.columns.tolist()
+        matching_genes = [gene for gene in lincs_genes if gene in available_genes]
+
+        print(f"Found {len(matching_genes)} matching genes out of {len(lincs_genes)} LINCS genes")
+        print(f"Original dataframe had {len(available_genes)} genes")
+
+        if len(matching_genes) == 0:
+            print("Warning: No LINCS genes found in the dataframe!")
+            return df
+
+        # Keep cancer_id column and matching genes
+        columns_to_keep = [canc_col_name] + matching_genes
+        filtered_df = df[columns_to_keep]
+
+        print(f"Filtered dataframe now has {len(filtered_df.columns)} columns")
+        print(f"Sample of matching genes: {matching_genes[:10]}")
+
+        return filtered_df
+
+    except FileNotFoundError:
+        print(f"Error: LINCS genes file {lincs_genes_file} not found")
+        return df
+    except Exception as e:
+        print(f"Error reading LINCS genes file: {e}")
+        return df
+    
+
+
+# ------------------------------------------------------
+# Not Yet Used Utils
+# ------------------------------------------------------
+
+
 def gene_selection(df: pd.DataFrame, genes_fpath: Union[Path, str], canc_col_name: str):
     """Takes a dataframe omics data (e.g., gene expression) and retains only
     the genes specified in genes_fpath.

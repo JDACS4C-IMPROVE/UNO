@@ -59,6 +59,12 @@ model_preproc_params = [
         "help": "Flag to indicate if using landmark genes.",
     },
     {
+        "name": "lincs_genes_file",
+        "type": str,
+        "default": "lincs_genes.txt",
+        "help": "Path to file containing LINCS gene list for filtering",
+    },
+    {
         "name": "ge_scaling",
         "type": str,
         "default": "std",
