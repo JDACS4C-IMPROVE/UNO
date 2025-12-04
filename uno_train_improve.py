@@ -110,7 +110,7 @@ def run(params: Dict):
     batch_size = params["batch_size"]
     generator_batch_size = params["generator_batch_size"]
     learning_rate = params["learning_rate"]
-    max_lr = learning_rate * batch_size
+    max_lr = learning_rate * 10 # trial_dev edit
     min_lr = max_lr / 10000
     warmup_epochs = params["warmup_epochs"]
     warmup_type = params["warmup_type"]

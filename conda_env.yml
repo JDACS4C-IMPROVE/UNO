@@ -16,5 +16,5 @@ dependencies:
   - tqdm  # Let conda-forge choose
   - fastparquet  # Let conda-forge choose
   - pyarrow  # Let conda-forge choose
-  - pip:
-      - "git+https://github.com/JDACS4C-IMPROVE/IMPROVE.git@develop#egg=improvelib"
+  # - pip:
+  #     - "git+https://github.com/JDACS4C-IMPROVE/IMPROVE.git@develop#egg=improvelib"

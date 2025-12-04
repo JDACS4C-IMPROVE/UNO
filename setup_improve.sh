@@ -45,7 +45,6 @@ fi
 popd
 popd
 echo $improve_lib_path > $PWD/.setup-python-path.sh
-)
 if (( $? != 0 ))
 then
   echo "setup failed!"
