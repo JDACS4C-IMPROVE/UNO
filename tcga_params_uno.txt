@@ -1,0 +1,126 @@
+[Global_Params]
+model_name = UNO
+y_col_name = auc
+
+[Preprocess]
+test_split_file = tcga_test_all.txt
+ml_data_outdir = ./ml_data/gCSI-gCSI/split_0
+data_format = .parquet
+y_data_files = [["response_tcga.tsv"]]
+x_data_canc_files = [["cancer_gene_expression.tsv",  ["Gene_Symbol"]]]
+x_data_drug_files = [["drug_mordred.tsv"]]
+use_lincs = False
+ge_scaling = std
+md_scaling = std
+preprocess_debug = False
+preprocess_subset_data = False
+
+
+[Global Hyperparameter Space]
+dropout = 0.1
+activation = "relu"
+
+[Block Hyperparameter Space]
+canc_arch = [1000, 1000, 1000]
+canc_activation = "relu"
+canc_dropout = 0.1
+drug_arch = [1000, 1000, 1000]
+drug_activation = "relu"
+drug_dropout = 0.1
+interaction_arch = [1000, 1000, 1000, 1000, 1000]
+interaction_activation = "relu"
+interaction_dropout = 0.1
+
+[Layer Hyperparameter Space]
+canc_num_layers = 3
+canc_layer_1_size = 1000
+canc_layer_2_size = 1000
+canc_layer_3_size = 1000
+canc_layer_4_size = 512
+canc_layer_5_size = 256
+canc_layer_6_size = 128
+canc_layer_7_size = 64
+canc_layer_8_size = 32
+canc_layer_9_size = 16
+canc_layer_1_dropout = 0.1
+canc_layer_2_dropout = 0.1
+canc_layer_3_dropout = 0.1
+canc_layer_4_dropout = 0.1
+canc_layer_5_dropout = 0.1
+canc_layer_6_dropout = 0.1
+canc_layer_7_dropout = 0.1
+canc_layer_8_dropout = 0.1
+canc_layer_9_dropout = 0.1
+canc_layer_1_activation = "relu"
+canc_layer_2_activation = "relu"
+canc_layer_3_activation = "relu"
+canc_layer_4_activation = "relu"
+canc_layer_5_activation = "relu"
+canc_layer_6_activation = "relu"
+canc_layer_7_activation = "relu"
+canc_layer_8_activation = "relu"
+canc_layer_9_activation = "relu"
+drug_num_layers = 3
+drug_layer_1_size = 1000
+drug_layer_2_size = 1000
+drug_layer_3_size = 1000
+drug_layer_4_size = 512
+drug_layer_5_size = 256
+drug_layer_6_size = 128
+drug_layer_7_size = 64
+drug_layer_8_size = 32
+drug_layer_9_size = 16
+drug_layer_1_dropout = 0.1
+drug_layer_2_dropout = 0.1
+drug_layer_3_dropout = 0.1
+drug_layer_4_dropout = 0.1
+drug_layer_5_dropout = 0.1
+drug_layer_6_dropout = 0.1
+drug_layer_7_dropout = 0.1
+drug_layer_8_dropout = 0.1
+drug_layer_9_dropout = 0.1
+drug_layer_1_activation = "relu"
+drug_layer_2_activation = "relu"
+drug_layer_3_activation = "relu"
+drug_layer_4_activation = "relu"
+drug_layer_5_activation = "relu"
+drug_layer_6_activation = "relu"
+drug_layer_7_activation = "relu"
+drug_layer_8_activation = "relu"
+drug_layer_9_activation = "relu"
+interaction_num_layers = 5
+interaction_layer_1_size = 1000
+interaction_layer_2_size = 1000
+interaction_layer_3_size = 1000
+interaction_layer_4_size = 1000
+interaction_layer_5_size = 1000
+interaction_layer_6_size = 512
+interaction_layer_7_size = 256
+interaction_layer_8_size = 128
+interaction_layer_9_size = 64
+interaction_layer_1_dropout = 0.1
+interaction_layer_2_dropout = 0.1
+interaction_layer_3_dropout = 0.1
+interaction_layer_4_dropout = 0.1
+interaction_layer_5_dropout = 0.1
+interaction_layer_6_dropout = 0.1
+interaction_layer_7_dropout = 0.1
+interaction_layer_8_dropout = 0.1
+interaction_layer_9_dropout = 0.1
+interaction_layer_1_activation = "relu"
+interaction_layer_2_activation = "relu"
+interaction_layer_3_activation = "relu"
+interaction_layer_4_activation = "relu"
+interaction_layer_5_activation = "relu"
+interaction_layer_6_activation = "relu"
+interaction_layer_7_activation = "relu"
+interaction_layer_8_activation = "relu"
+interaction_layer_9_activation = "relu"
+
+
+[Infer]
+data_format = .parquet
+model_file_name = model
+model_file_format = h5
+infer_batch = 256
+cuda_name = cuda:7
